@@ -1,6 +1,18 @@
 # Layers
 Layers is a library for Neural Networks in TensorFlow. It provides implementations for a variety of neural network layers and other helper functions. It is designed with an emphasis on being well documented, cleanly written, and as generalizable as possible to new network architectures. To this end, many tricks and techniques are used to ensure the best-practice methods of defining these layers are used by default, and that the layers can be used with non-standard numbers of spatial dimensions, enabling them to be used for 1D, 2D, 3D and more.
 
+## Installation
+Install Python. Both Python2 and Python3 are supported, although Python3 should be more efficient.
+
+Install setuptools:
+```
+pip install setuptools
+```
+
+Install the latest version of [TensorFlow](https://tensorflow.org). Follow the instructions at their website. You will likely also want to use cuDNN and CUDA if you are using GPU acceleration.
+
+Then, simply clone this repo and run `python setup.py install`
+
 ## List of Functions Implemented
 - Fully Connected Layer
   - Generalizes to N>=0 spatial dimensions
