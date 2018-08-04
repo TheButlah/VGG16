@@ -188,7 +188,7 @@ def _upscale(x, *,
 
     Args:
         x:      The tensor to upscale. Only the spatial dimensions (all but first and last dim) are upscaled.
-        factor: The factory by which to upscale. This should be an integer.
+        factor: The factor by which to upscale. This should be an integer.
         scope:  String or VariableScope to use as the scope. If `None`, use default naming scheme.
     Returns:
         The upscaled tensor. Shape is multiplied by `factor` on each spatial dimension (all but first and last dim).
@@ -275,15 +275,21 @@ def unpool(x, mask, *,
 
 
 def fully_connected(x, num_features, *,
+                    connect_to=None,
                     activation=tf.nn.leaky_relu, phase_train=None,
                     custom_inits=None, scope=None):
     """Creates a fully connected (dense) layer.
 
-    Optionally performs batch normalization and also intelligently initializes weights. Will flatten `input` correctly.
+    Optionally performs batch normalization and also intelligently initializes
+    weights. Will fully connect to all spatial and feature dims by default,
+    unless specified otherwise.
 
     Args:
         x:            Tensor, shaped `[batch, features...]` allowing it do be used with Conv or FC layers of any shape.
         num_features: The number of features that the layer will output.
+        connect_to:   If `None`, will connect to all spatial and feature dims.
+                      Otherwise, the specific dims to connect to should be given
+                      either as a tuple or int.
         activation:   The activation function to use. If `None`, the raw scores are returned.
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
@@ -295,7 +301,8 @@ def fully_connected(x, num_features, *,
         output, vars: `output` is a tensor of the output of the layer.
                       `vars` is a dict of the variables, including those in the batch norm layer if present.
     """
-    input_shape = x.shape.as_list()  # Don't deal with a TensorShape and instead use a list
+    # Don't deal with a TensorShape and instead use a ndarray
+    input_shape = x.shape.as_list()
 
     if len(input_shape) < 2 or (None in input_shape[1:]):
         raise ValueError("`x` must have shape [batch, features...]")
@@ -310,15 +317,26 @@ def fully_connected(x, num_features, *,
         if custom_inits is not None:
             inits.update(custom_inits)  # Overwrite default inits with `custom_inits`
 
-        # Flatten all but batch dims
-        if len(input_shape) > 2:
-            x = tf.reshape(x, [-1, np.prod(input_shape[1:])])
+        if connect_to is None:
+            connect_to = np.arange(1, len(input_shape))
+        else:
+            # Convert to a ndarray for consistency's sake
+            connect_to = np.atleast_1d(connect_to)
 
-        weights = tf.get_variable('Weights', initializer=inits['Weights']([x.shape.as_list()[-1], num_features]))
+        if len(connect_to) >= len(input_shape) or 0 in connect_to:
+            raise ValueError("`connect_to` shouldn't connect to the batch dim!")
+
+        # Flatten dims in `connect_to` into features, and all else into batch.
+        if len(input_shape) > 2:
+            x = tf.reshape(
+                x,
+                [-1, np.prod(np.asarray(input_shape)[connect_to])])
+
+        weights = tf.get_variable('Weights', initializer=inits['Weights']([x.shape[-1].value, num_features]))
         vars = {'Weights': weights}
 
         matmul = tf.matmul(x, weights)
-        matmul = tf.reshape(matmul, [-1] + input_shape[1:-1] + [num_features])  # Reshape back into the original shape
+        matmul = tf.reshape(matmul, input_shape[:-1] + [num_features])  # Reshape back into the original shape
 
         # Do batch norm?
         if phase_train is not None:
