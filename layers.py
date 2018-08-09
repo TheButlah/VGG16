@@ -169,8 +169,12 @@ def convolutional(x, num_features, *,
 
         # Do batch norm?
         if phase_train is not None:
-            scores, bn_vars = batch_norm(convolved, phase_train,
-                decay=bn_decay, custom_inits=inits.get('BN'))
+            if bn_decay is None:
+                scores, bn_vars = batch_norm(convolved, phase_train,
+                    custom_inits=inits.get('BN'))
+            else:
+                scores, bn_vars = batch_norm(convolved, phase_train,
+                    decay=bn_decay, custom_inits=inits.get('BN'))
             vars['BN'] = bn_vars
         else:
             # If we aren't doing batch norm, we need a bias!
@@ -358,10 +362,10 @@ def fully_connected(x, num_features, *,
         if phase_train is not None:
             if bn_decay is None:
                 scores, bn_vars = batch_norm(matmul, phase_train,
-                    custom_inits = inits.get('BN'))
+                    custom_inits=inits.get('BN'))
             else:
                 scores, bn_vars = batch_norm(matmul, phase_train,
-                    decay=bn_decay, custom_inits = inits.get('BN'))
+                    decay=bn_decay, custom_inits=inits.get('BN'))
             vars['BN'] = bn_vars
         else:
             # If we aren't doing batch norm, we need a bias!
@@ -471,7 +475,7 @@ def k_competitive(x, phase_train, k, *,
             signs = masked / (tf.abs(masked) + epsilon)
             # Calculate and add the energy term
             energy_term = tf.expand_dims(energy, -1) * signs
-            return masked + alpha*energy_term
+            return masked + alpha * energy_term
 
         def test():
             return x
