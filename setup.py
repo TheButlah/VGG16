@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="layers",
-    version="0.2.0",
+    version="0.3.0",
     author="Ryan Butler",
     author_email="thebutlah@gmail.com",
     description="A variety of neural network layers and other helper functions in TensorFlow.",
