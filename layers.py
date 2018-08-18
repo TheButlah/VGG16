@@ -9,7 +9,8 @@ import numpy as np
 import math
 
 
-def batch_norm(x, phase_train, decay=0.9, custom_inits=None, scope=None):
+def batch_norm(x, phase_train, *,
+               decay=0.9, custom_inits=None, scope=None):
     """Creates a batch normalization layer.
 
     Used to stabilize distribution of outputs from a layer. Typically used right before a non-linearity. Works on
@@ -38,7 +39,7 @@ def batch_norm(x, phase_train, decay=0.9, custom_inits=None, scope=None):
         raise ValueError("`x.shape` must be [batch, ..., features].")
 
     with tf.variable_scope(scope, default_name='BN'):
-        # Define default initializers for beta and gamma. These are functions from shape to tensor.
+        # Default inits for beta and gamma. Functions from shape to tensor.
         inits = {
             'Beta': lambda shape: tf.constant(0., shape=shape),
             'Gamma': lambda shape: tf.constant(1., shape=shape),
@@ -74,7 +75,8 @@ def batch_norm(x, phase_train, decay=0.9, custom_inits=None, scope=None):
 bn = batch_norm
 
 
-def dropout(x, phase_train, keep_prob=0.75, scope=None):
+def dropout(x, phase_train, *,
+            keep_prob=0.75, scope=None):
     """Creates a dropout layer.
 
     Used to regularize Conv and FC layers by preventing co-adaptation of neurons. Works on n-dimensional data.
@@ -107,7 +109,10 @@ def dropout(x, phase_train, keep_prob=0.75, scope=None):
 drop = dropout
 
 
-def convolutional(x, num_features, size=3, activation=tf.nn.leaky_relu, phase_train=None, custom_inits=None, scope=None):
+def convolutional(x, num_features, *,
+                  size=3, activation=tf.nn.leaky_relu,
+                  phase_train=None, bn_decay=None,
+                  custom_inits=None, scope=None):
     """"Creates a convolutional Layer.
 
     Works on n spatial dimensions, as long as 1<=n<=3 due to limitations in `tf.nn.convolution`. Optionally performs
@@ -121,6 +126,8 @@ def convolutional(x, num_features, size=3, activation=tf.nn.leaky_relu, phase_tr
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
                       is currently being trained or if it is inference time.
+        bn_decay:     Tensor for the current exponential decay rate for the batch norm layer, or `None` to use default
+                      rate. Only used if `phase_train` specified.
         custom_inits: The initializer to use for the weights of the kernel, and any other variables such as those in the
                       batch norm layer, if `phase_train` has been specified. If `None` then default parameters are used.
         scope:        String or VariableScope to use as the scope. If `None`, use default naming scheme.
@@ -137,13 +144,17 @@ def convolutional(x, num_features, size=3, activation=tf.nn.leaky_relu, phase_tr
     if not x.dtype.is_floating:
         raise ValueError("`x` must be floating point.")
 
+    if bn_decay is not None and phase_train is None:
+        raise ValueError("`bn_decay` should only be provided when `phase_train`"
+                         "is provided.")
+
     with tf.variable_scope(scope, default_name='Conv'):
         # Figure out `kernel_shape`
         kernel_shape = [size]*num_spatial
         kernel_shape += [input_shape[-1], num_features]  # example: [size, size, input_features, num_features]
         kernel_shape = kernel_shape
 
-        # Define default initializers for the kernel and bias. These are functions from shape to tensor.
+        # Default inits for the kernel and bias. Functions from shape to tensor.
         inits = {
             'Kernel': lambda shape: xavier_initializer(shape=shape),
             'Bias': lambda shape: xavier_initializer(shape=shape),
@@ -158,7 +169,12 @@ def convolutional(x, num_features, size=3, activation=tf.nn.leaky_relu, phase_tr
 
         # Do batch norm?
         if phase_train is not None:
-            scores, bn_vars = batch_norm(convolved, phase_train, custom_inits=inits.get('BN'))
+            if bn_decay is None:
+                scores, bn_vars = batch_norm(convolved, phase_train,
+                    custom_inits=inits.get('BN'))
+            else:
+                scores, bn_vars = batch_norm(convolved, phase_train,
+                    decay=bn_decay, custom_inits=inits.get('BN'))
             vars['BN'] = bn_vars
         else:
             # If we aren't doing batch norm, we need a bias!
@@ -178,12 +194,13 @@ def convolutional(x, num_features, size=3, activation=tf.nn.leaky_relu, phase_tr
 conv = convolutional
 
 
-def _upscale(x, factor=2, scope=None):
+def _upscale(x, *,
+             factor=2, scope=None):
     """Upscales the shape of a N-Dimensional tensor by duplicating adjacent entries.
 
     Args:
         x:      The tensor to upscale. Only the spatial dimensions (all but first and last dim) are upscaled.
-        factor: The factory by which to upscale. This should be an integer.
+        factor: The factor by which to upscale. This should be an integer.
         scope:  String or VariableScope to use as the scope. If `None`, use default naming scheme.
     Returns:
         The upscaled tensor. Shape is multiplied by `factor` on each spatial dimension (all but first and last dim).
@@ -207,7 +224,8 @@ def _upscale(x, factor=2, scope=None):
         return x
 
 
-def pool(x, compute_mask=False, pool_type="MAX", size=2, scope=None):
+def pool(x, *,
+         compute_mask=False, pool_type="MAX", size=2, scope=None):
     """Creates a pooling layer.
 
     Will work on N-Dimensional data. Can also compute a mask to indicate the selected pooling indices for max pooling.
@@ -241,7 +259,8 @@ def pool(x, compute_mask=False, pool_type="MAX", size=2, scope=None):
             return pooled
 
 
-def unpool(x, mask, factor=2, scope=None):
+def unpool(x, mask, *,
+           factor=2, scope=None):
     """Creates an unpooling layer.
 
     Unpooling takes `x` and upscales it, putting zeros in all locations except the indices selected in `mask`. Will work
@@ -258,7 +277,7 @@ def unpool(x, mask, factor=2, scope=None):
         scope:  String or VariableScope to use as the scope. If `None`, use default naming scheme.
     Returns:
         A tensor for the result of the unpooling. Will have the same shape as `x` but the spatial dims will be
-        multiplied by `factor`.
+       Lucy multiplied by `factor`.
     """
     x = tf.convert_to_tensor(x)
     with tf.variable_scope(scope, default_name='Unpool'):
@@ -267,18 +286,28 @@ def unpool(x, mask, factor=2, scope=None):
         return output
 
 
-def fully_connected(x, num_features, activation=tf.nn.leaky_relu, phase_train=None, custom_inits=None, scope=None):
+def fully_connected(x, num_features, *,
+                    connect_to=None, activation=tf.nn.leaky_relu,
+                    phase_train=None, bn_decay=None,
+                    custom_inits=None, scope=None):
     """Creates a fully connected (dense) layer.
 
-    Optionally performs batch normalization and also intelligently initializes weights. Will flatten `input` correctly.
+    Optionally performs batch normalization and also intelligently initializes
+    weights. Will fully connect to all spatial and feature dims by default,
+    unless specified otherwise.
 
     Args:
         x:            Tensor, shaped `[batch, features...]` allowing it do be used with Conv or FC layers of any shape.
         num_features: The number of features that the layer will output.
+        connect_to:   If `None`, will connect to all spatial and feature dims.
+                      Otherwise, the specific dims to connect to should be given
+                      either as a tuple or int.
         activation:   The activation function to use. If `None`, the raw scores are returned.
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
                       is currently being trained or if it is inference time.
+        bn_decay:     Tensor for the current exponential decay rate for the batch norm layer, or `None` to use default
+                      rate. Only used if `phase_train` specified.
         custom_inits: The initializer to use for the weights, and any other variables such as those in the batch norm
                       layer, if `phase_train` has been specified. If `None` then default parameters are used.
         scope:        String or VariableScope to use as the scope. If `None`, use default naming scheme.
@@ -286,38 +315,62 @@ def fully_connected(x, num_features, activation=tf.nn.leaky_relu, phase_train=No
         output, vars: `output` is a tensor of the output of the layer.
                       `vars` is a dict of the variables, including those in the batch norm layer if present.
     """
-    input_shape = x.shape.as_list()  # Don't deal with a TensorShape and instead use a list
+    # Don't deal with a TensorShape and instead use a ndarray
+    input_shape = x.shape.as_list()
 
     if len(input_shape) < 2 or (None in input_shape[1:]):
         raise ValueError("`x` must have shape [batch, features...]")
 
+    if bn_decay is not None and phase_train is None:
+        raise ValueError("`bn_decay` should only be provided when `phase_train`"
+                         "is provided.")
+
     with tf.variable_scope(scope, default_name='FC'):
 
-        # Define default initializers for the weights. These are functions from shape to tensor.
+        # Default inits for the weights. Functions from shape to tensor.
         inits = {
             'Weights': lambda shape: xavier_initializer(shape=shape),
             'Bias': lambda shape: xavier_initializer(shape=shape),
         }
         if custom_inits is not None:
-            inits.update(custom_inits)  # Overwrite default inits with `custom_inits`
+            inits.update(custom_inits)  # Overwrite default with `custom_inits`
 
-        # Flatten all but batch dims
+        if connect_to is None:
+            connect_to = np.arange(1, len(input_shape))
+        else:
+            # Convert to a ndarray for consistency's sake
+            connect_to = np.atleast_1d(connect_to)
+
+        if len(connect_to) >= len(input_shape) or 0 in connect_to:
+            raise ValueError("`connect_to` shouldn't connect to the batch dim!")
+
+        # Flatten dims in `connect_to` into features, and all else into batch.
         if len(input_shape) > 2:
-            x = tf.reshape(x, [-1, np.prod(input_shape[1:])])
+            x = tf.reshape(
+                x,
+                [-1, np.prod(np.asarray(input_shape)[connect_to])])
 
-        weights = tf.get_variable('Weights', initializer=inits['Weights']([x.shape.as_list()[-1], num_features]))
+        weights = tf.get_variable('Weights',
+            initializer=inits['Weights']([x.shape[-1].value, num_features]))
         vars = {'Weights': weights}
 
         matmul = tf.matmul(x, weights)
-        matmul = tf.reshape(matmul, [-1] + input_shape[1:-1] + [num_features])  # Reshape back into the original shape
+        # Reshape back into the original shape
+        matmul = tf.reshape(matmul, input_shape[:-1] + [num_features])
 
         # Do batch norm?
         if phase_train is not None:
-            scores, bn_vars = batch_norm(matmul, phase_train, custom_inits=inits.get('BN'))
+            if bn_decay is None:
+                scores, bn_vars = batch_norm(matmul, phase_train,
+                    custom_inits=inits.get('BN'))
+            else:
+                scores, bn_vars = batch_norm(matmul, phase_train,
+                    decay=bn_decay, custom_inits=inits.get('BN'))
             vars['BN'] = bn_vars
         else:
             # If we aren't doing batch norm, we need a bias!
-            bias = tf.get_variable('Bias', initializer=inits['Bias']([num_features]))
+            bias = tf.get_variable('Bias',
+                initializer=inits['Bias']([num_features]))
             vars['Bias'] = bias
             scores = matmul + bias
 
@@ -333,7 +386,9 @@ def fully_connected(x, num_features, activation=tf.nn.leaky_relu, phase_train=No
 fc = fully_connected
 
 
-def xavier_initializer(shape, uniform=True, dtype=tf.float32, name='Xavier-Initializer'):
+def xavier_initializer(shape, *,
+                       uniform=True, dtype=tf.float32,
+                       name='Xavier-Initializer'):
     """Outputs a random tensor initialized with the Xavier initializer. Ensures a variance of 1.
 
     This was already implemented in tf.contrib.layers, but it has been re-implemented here for simplification.
@@ -371,7 +426,8 @@ def xavier_initializer(shape, uniform=True, dtype=tf.float32, name='Xavier-Initi
         return tf.truncated_normal(shape, stddev=stddev, dtype=dtype, name=name)
 
 
-def k_competitive(x, phase_train, k, alpha=0, epsilon=0.0001, scope=None):
+def k_competitive(x, phase_train, k, *,
+                  alpha=0, epsilon=0.0001, scope=None):
     """Creates a k-competitive layer.
 
     A K-Competitive layer encourages neurons in the network to specialize by only allowing the `k` most active neurons
@@ -419,7 +475,7 @@ def k_competitive(x, phase_train, k, alpha=0, epsilon=0.0001, scope=None):
             signs = masked / (tf.abs(masked) + epsilon)
             # Calculate and add the energy term
             energy_term = tf.expand_dims(energy, -1) * signs
-            return masked + alpha*energy_term
+            return masked + alpha * energy_term
 
         def test():
             return x
