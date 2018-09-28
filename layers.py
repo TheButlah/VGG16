@@ -3,14 +3,14 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 from __future__ import absolute_import
+from six.moves import range, zip
 
 import tensorflow as tf
 import numpy as np
 import math
 
 
-def batch_norm(x, phase_train, *,
-               decay=0.9, custom_inits=None, scope=None):
+def batch_norm(x, phase_train, decay=0.9, custom_inits=None, scope=None):
     """Creates a batch normalization layer.
 
     Used to stabilize distribution of outputs from a layer. Typically used right before a non-linearity. Works on
@@ -75,8 +75,7 @@ def batch_norm(x, phase_train, *,
 bn = batch_norm
 
 
-def dropout(x, phase_train, *,
-            keep_prob=0.75, scope=None):
+def dropout(x, phase_train, keep_prob=0.80, scope=None):
     """Creates a dropout layer.
 
     Used to regularize Conv and FC layers by preventing co-adaptation of neurons. Works on n-dimensional data.
@@ -109,7 +108,7 @@ def dropout(x, phase_train, *,
 drop = dropout
 
 
-def convolutional(x, num_features, *,
+def convolutional(x, num_features,
                   size=3, activation=tf.nn.leaky_relu,
                   phase_train=None, bn_decay=None,
                   custom_inits=None, scope=None):
@@ -194,8 +193,7 @@ def convolutional(x, num_features, *,
 conv = convolutional
 
 
-def _upscale(x, *,
-             factor=2, scope=None):
+def _upscale(x, factor=2, scope=None):
     """Upscales the shape of a N-Dimensional tensor by duplicating adjacent entries.
 
     Args:
@@ -224,8 +222,7 @@ def _upscale(x, *,
         return x
 
 
-def pool(x, *,
-         compute_mask=False, pool_type="MAX", size=2, scope=None):
+def pool(x, compute_mask=False, pool_type="MAX", size=2, scope=None):
     """Creates a pooling layer.
 
     Will work on N-Dimensional data. Can also compute a mask to indicate the selected pooling indices for max pooling.
@@ -259,8 +256,7 @@ def pool(x, *,
             return pooled
 
 
-def unpool(x, mask, *,
-           factor=2, scope=None):
+def unpool(x, mask, factor=2, scope=None):
     """Creates an unpooling layer.
 
     Unpooling takes `x` and upscales it, putting zeros in all locations except the indices selected in `mask`. Will work
@@ -286,7 +282,7 @@ def unpool(x, mask, *,
         return output
 
 
-def fully_connected(x, num_features, *,
+def fully_connected(x, num_features,
                     connect_to=None, activation=tf.nn.leaky_relu,
                     phase_train=None, bn_decay=None,
                     custom_inits=None, scope=None):
@@ -386,8 +382,7 @@ def fully_connected(x, num_features, *,
 fc = fully_connected
 
 
-def xavier_initializer(shape, *,
-                       uniform=True, dtype=tf.float32,
+def xavier_initializer(shape, uniform=True, dtype=tf.float32,
                        name='Xavier-Initializer'):
     """Outputs a random tensor initialized with the Xavier initializer. Ensures a variance of 1.
 
@@ -426,8 +421,7 @@ def xavier_initializer(shape, *,
         return tf.truncated_normal(shape, stddev=stddev, dtype=dtype, name=name)
 
 
-def k_competitive(x, phase_train, k, *,
-                  alpha=0, epsilon=0.0001, scope=None):
+def k_competitive(x, phase_train, k, alpha=0, epsilon=0.0001, scope=None):
     """Creates a k-competitive layer.
 
     A K-Competitive layer encourages neurons in the network to specialize by only allowing the `k` most active neurons

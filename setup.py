@@ -5,10 +5,11 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="layers",
-    version="0.3.0",
+    version="0.3.1",
     author="Ryan Butler",
     author_email="thebutlah@gmail.com",
-    description="A variety of neural network layers and other helper functions in TensorFlow.",
+    description="A variety of neural network layers and other helper functions "
+                "in TensorFlow.",
     long_description=long_description,
     # long_description_content_type="text/markdown",
     url="https://github.com/TheButlah/Layers",
