@@ -166,7 +166,7 @@ def convolutional(x, num_features, stride = None,
         vars = {'Kernel': kernel}
 
         if stride is not None:
-            stride = [1,stride,stride,1]
+            stride = [stride,stride]
 
         convolved = tf.nn.convolution(x, kernel, padding="SAME",strides=stride ,name='Conv')
 
