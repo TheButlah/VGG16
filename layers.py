@@ -297,7 +297,12 @@ def fully_connected(x, num_features,
         num_features: The number of features that the layer will output.
         connect_to:   If `None`, will connect to all spatial and feature dims.
                       Otherwise, the specific dims to connect to should be given
-                      either as a tuple or int.
+                      either as a tuple or int. All dims located in `connect_to`
+                      will be flattened and not in the output shape. The output
+                      feature dim will always be the last dim, and the dims not
+                      connected to will retain their relative order to each
+                      other in the output shape. Example: (0,1,2,3,4) connected
+                      to dims (1,3) gives output dims (0,2,4,features).
         activation:   The activation function to use. If `None`, the raw scores are returned.
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
@@ -312,7 +317,7 @@ def fully_connected(x, num_features,
                       `vars` is a dict of the variables, including those in the batch norm layer if present.
     """
     # Don't deal with a TensorShape and instead use a ndarray
-    input_shape = x.shape.as_list()
+    input_shape = np.asarray(x.shape.as_list())
 
     if len(input_shape) < 2 or (None in input_shape[1:]):
         raise ValueError("`x` must have shape [batch, features...]")
@@ -340,19 +345,38 @@ def fully_connected(x, num_features,
         if len(connect_to) >= len(input_shape) or 0 in connect_to:
             raise ValueError("`connect_to` shouldn't connect to the batch dim!")
 
+        if len(connect_to) == 0:
+            raise ValueError("`connect_to` should connect to at least one dim!")
+
         # Flatten dims in `connect_to` into features, and all else into batch.
+        # Only needed if ndims greater than 2
         if len(input_shape) > 2:
+            # Transpose potentially necessary if not all non-batch dims are
+            # connected to.
+            if len(connect_to) != len(input_shape) - 1:
+                # use set difference to find dims not connected to
+                not_connect_to = np.setdiff1d(
+                    np.arange(1, len(input_shape)),
+                    connect_to)
+                perms = np.concatenate(([0], not_connect_to, connect_to))
+                x = tf.transpose(x, perms)
+
+            connect_total = np.prod(input_shape[connect_to])
             x = tf.reshape(
                 x,
-                [-1, np.prod(np.asarray(input_shape)[connect_to])])
+                [-1, connect_total])
 
         weights = tf.get_variable('Weights',
             initializer=inits['Weights']([x.shape[-1].value, num_features]))
         vars = {'Weights': weights}
 
         matmul = tf.matmul(x, weights)
-        # Reshape back into the original shape
-        matmul = tf.reshape(matmul, input_shape[:-1] + [num_features])
+        # Reshape back into the original shape.
+        # Only needed if ndims greater than 2.
+        if len(input_shape) > 2:
+            output_shape = np.concatenate(
+                ([-1], input_shape[not_connect_to], [num_features]))
+            matmul = tf.reshape(matmul, output_shape)
 
         # Do batch norm?
         if phase_train is not None:

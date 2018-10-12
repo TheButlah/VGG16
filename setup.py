@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="layers",
-    version="0.3.1",
+    version="0.3.2",
     author="Ryan Butler",
     author_email="thebutlah@gmail.com",
     description="A variety of neural network layers and other helper functions "
