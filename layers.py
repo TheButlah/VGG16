@@ -121,6 +121,7 @@ def convolutional(x, num_features, stride = None,
         x:            Tensor, shaped `[batch, spatial..., features]`. Can have 1<=n<=3 spatial dimensions.
         num_features: The size of the feature dimension. This is the number of filters/neurons the layer will use.
         size:         The size of each convolutional filter.
+        stride:       The stride of each convolutional filter, the depth and batch are always set to 1.  
         activation:   The activation function to use. If `None`, the raw scores are returned.
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
