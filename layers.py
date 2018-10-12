@@ -108,7 +108,7 @@ def dropout(x, phase_train, keep_prob=0.80, scope=None):
 drop = dropout
 
 
-def convolutional(x, num_features,
+def convolutional(x, num_features, stride = None,
                   size=3, activation=tf.nn.leaky_relu,
                   phase_train=None, bn_decay=None,
                   custom_inits=None, scope=None):
@@ -164,7 +164,10 @@ def convolutional(x, num_features,
         kernel = tf.get_variable('Kernel', initializer=inits['Kernel'](kernel_shape))
         vars = {'Kernel': kernel}
 
-        convolved = tf.nn.convolution(x, kernel, padding="SAME", name='Conv')
+        if stride is not None:
+            stride = [1,stride,stride,1]
+
+        convolved = tf.nn.convolution(x, kernel, padding="SAME",strides=stride ,name='Conv')
 
         # Do batch norm?
         if phase_train is not None:
