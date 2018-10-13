@@ -242,7 +242,8 @@ def pool(x, compute_mask=False, pool_type="MAX", size=2, scope=None):
 
     x = tf.convert_to_tensor(x)
     if pool_type is not "MAX" and compute_mask:
-        raise ValueError("`compute_mask` cannot be `True` if `pool_type` is not \"MAX\"")
+        raise ValueError(
+            "`compute_mask` cannot be `True` if `pool_type` is not \"MAX\"")
     with tf.variable_scope(scope, default_name='Pool'):
         window_shape = [size]*(len(x.shape)-2)  # 2 for all spatial dims
         pooled = tf.nn.pool(x, window_shape=window_shape, pooling_type=pool_type, strides=window_shape, padding="SAME")
@@ -355,10 +356,10 @@ def fully_connected(x, num_features,
             # connected to.
             if len(connect_to) != len(input_shape) - 1:
                 # use set difference to find dims not connected to
-                not_connect_to = np.setdiff1d(
+                not_connected_to = np.setdiff1d(
                     np.arange(1, len(input_shape)),
                     connect_to)
-                perms = np.concatenate(([0], not_connect_to, connect_to))
+                perms = np.concatenate(([0], not_connected_to, connect_to))
                 x = tf.transpose(x, perms)
 
             connect_total = np.prod(input_shape[connect_to])
@@ -375,7 +376,7 @@ def fully_connected(x, num_features,
         # Only needed if ndims greater than 2.
         if len(input_shape) > 2:
             output_shape = np.concatenate(
-                ([-1], input_shape[not_connect_to], [num_features]))
+                ([-1], input_shape[not_connected_to], [num_features]))
             matmul = tf.reshape(matmul, output_shape)
 
         # Do batch norm?
@@ -433,7 +434,8 @@ def xavier_initializer(shape, uniform=True, dtype=tf.float32,
     else:
         # n_out is the number of neurons/filters/features
         n_out = shape[-1]
-        # n_in is the number of weights associated with a neuron. The following code works both for Conv and FC layers.
+        # n_in is the number of weights associated with a neuron.
+        # The following code works both for Conv and FC layers.
         n_in = tf.reduce_prod(shape[:-1])
         n_avg = tf.cast(n_in + n_out, dtype) / 2.0
 
@@ -441,7 +443,8 @@ def xavier_initializer(shape, uniform=True, dtype=tf.float32,
         limit = tf.sqrt(3.0 / n_avg)
         return tf.random_uniform(shape, -limit, limit, dtype=dtype, name=name)
     else:
-        stddev = tf.sqrt(1.3 / n_avg)  # This corrects for the fact that we are using a truncated normal distribution.
+        # This corrects for the fact that we are using a truncated normal
+        stddev = tf.sqrt(1.3 / n_avg)
         return tf.truncated_normal(shape, stddev=stddev, dtype=dtype, name=name)
 
 
@@ -470,22 +473,26 @@ def k_competitive(x, phase_train, k, alpha=0, epsilon=0.0001, scope=None):
 
     with tf.variable_scope(scope, default_name='K-Comp'):
         if k <= 0:
-            raise ValueError('`k` should be a float from (0,1) or an int larger than zero.')
+            raise ValueError(
+                '`k` should be a float from (0,1) or an int larger than zero.')
         elif k < 1:
-            k = math.ceil(k*x.shape[-1])  # Calculate how many neurons to drop if `k` is fraction.
+            # Calculate how many neurons to drop if `k` is fraction.
+            k = math.ceil(k*x.shape[-1])
 
         def train():
             # Get the shape and element-wise absolute value of the input volume
             shape = x.shape.as_list()
             ab = tf.abs(x)
-            # Calculate the base energy by taking the reduced sum of the feature dimension (L1 norm)
+            # Calculate the base energy by taking the reduced sum of the feature
+            # dimension (L1 norm)
             energy = tf.reduce_sum(ab, axis=-1)
-            # Find the top k indices in the feature dimension for each spatial dimension
+            # Find the top k indices in the feature dimension for each spatial
+            # dimension
             top, ind = tf.nn.top_k(ab, k)
             # To get loser energy, subtract total energy by winner energy
             energy -= tf.reduce_sum(top, axis=-1)
             # Produce and apply a mask marking the winning indices
-            # Sum along axis=-2 because we need to do bitwise or on the one-hot vectors
+            # Sum along axis=-2 because we need to do bitwise OR on the one-hot vectors
             mask = tf.reduce_sum(tf.one_hot(ind, depth=shape[-1], on_value=1.0, off_value=0.0, dtype=tf.float32), -2)
 
             masked = x * mask
