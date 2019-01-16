@@ -11,7 +11,14 @@ pip install setuptools
 
 Install the latest version of [TensorFlow](https://tensorflow.org). Follow the instructions at their website. You will likely also want to use cuDNN and CUDA if you are using GPU acceleration.
 
-Then, simply clone this repo and run `python setup.py install`
+Then, run the following:
+```
+git clone https://github.com/TheButlah/Layers.git
+cd Layers
+pip install .
+```
+
+If you wish to contribute to the project, we suggest running `pip install -e .` instead, which will allow any changes to source files you make to be reflected in the installation without having to reinstall.
 
 ## List of Functions Implemented
 - Fully Connected Layer
