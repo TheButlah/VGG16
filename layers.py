@@ -108,8 +108,8 @@ def dropout(x, phase_train, keep_prob=0.80, scope=None):
 drop = dropout
 
 
-def convolutional(x, num_features,
-                  size=3, activation=tf.nn.leaky_relu,
+def convolutional(x, num_features, 
+                  size=3, stride=1, activation=tf.nn.leaky_relu,
                   phase_train=None, bn_decay=None,
                   custom_inits=None, scope=None):
     """"Creates a convolutional Layer.
@@ -121,6 +121,7 @@ def convolutional(x, num_features,
         x:            Tensor, shaped `[batch, spatial..., features]`. Can have 1<=n<=3 spatial dimensions.
         num_features: The size of the feature dimension. This is the number of filters/neurons the layer will use.
         size:         The size of each convolutional filter.
+        stride:       The stride of each convolutional filter along the spatial dims.
         activation:   The activation function to use. If `None`, the raw scores are returned.
         phase_train:  If not `None`, then the scores will be put through a batch norm layer before getting fed into the
                       activation function. In that case, this will be a scalar boolean tensor indicating if the model
@@ -151,7 +152,6 @@ def convolutional(x, num_features,
         # Figure out `kernel_shape`
         kernel_shape = [size]*num_spatial
         kernel_shape += [input_shape[-1], num_features]  # example: [size, size, input_features, num_features]
-        kernel_shape = kernel_shape
 
         # Default inits for the kernel and bias. Functions from shape to tensor.
         inits = {
@@ -164,7 +164,10 @@ def convolutional(x, num_features,
         kernel = tf.get_variable('Kernel', initializer=inits['Kernel'](kernel_shape))
         vars = {'Kernel': kernel}
 
-        convolved = tf.nn.convolution(x, kernel, padding="SAME", name='Conv')
+
+        # TODO: Figure out what the actual strides argument should be
+        stride_list = [1] + [stride]*num_spatial + [1]
+        convolved = tf.nn.convolution(x, kernel, padding="SAME", strides=stride_list, name='Conv')
 
         # Do batch norm?
         if phase_train is not None:
